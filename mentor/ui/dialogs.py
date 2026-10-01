@@ -998,3 +998,70 @@ class LessonWrapUpDialog(BaseDialog):
         root.addWidget(homework)
         self._homework_widgets = [self.homework_title, self.homework_due, self.homework_instructions]
         self._toggle_homework(False)
+
+        hint = QLabel(tr("Completing the lesson updates attendance, keeps your notes, and records the activity in Statistics."))
+        hint.setWordWrap(True); hint.setObjectName("muted"); root.addWidget(hint)
+        root.addStretch(); root.addWidget(self.buttons("Complete Lesson"))
+
+    def _toggle_homework(self, enabled: bool) -> None:
+        for widget in getattr(self, "_homework_widgets", []):
+            widget.setEnabled(enabled)
+
+    def data(self) -> dict[str, Any]:
+        homework = None
+        if self.create_homework.isChecked():
+            homework = {
+                "student_id": self.session.get("student_id"),
+                "session_id": self.session.get("id"),
+                "material_id": None,
+                "subject": self.session.get("subject") or "",
+                "title": self.homework_title.text(),
+                "instructions": self.homework_instructions.toPlainText(),
+                "due_date": self.homework_due.date().toString("yyyy-MM-dd"),
+                "status": "Assigned",
+                "score": "",
+            }
+        return {"attendance": str(self.attendance.currentData() or "Not marked"), "notes": self.notes.toPlainText(), "homework": homework}
+
+    def accept(self) -> None:
+        if self.create_homework.isChecked() and not self.homework_title.text().strip():
+            QMessageBox.warning(self, tr("Homework needs a title"), tr("Add a homework title or turn off homework for this lesson."))
+            self.homework_title.setFocus(); return
+        super().accept()
+
+
+class SeriesScopeDialog(BaseDialog):
+    """Choose how an edit/cancel/delete applies to a recurring lesson series."""
+
+    def __init__(self, action_name: str, parent=None):
+        super().__init__(f"{tr(action_name)} · {tr('Recurring Lesson')}", parent)
+        self.scope: str | None = None
+        self.setMinimumWidth(500)
+        root = QVBoxLayout(self); root.setContentsMargins(24,22,24,22); root.setSpacing(12)
+        self.add_header(root, f"{tr(action_name)} · {tr('Recurring Lesson').lower()}", tr("Choose exactly how much of this series should change."))
+        destructive = action_name.lower() == "delete"
+        future_detail = (
+            "Keep earlier lessons, remove this occurrence and everything after it."
+            if destructive else
+            "Keep earlier lessons unchanged and apply this action from here forward."
+        )
+        series_detail = (
+            "Remove every lesson that belongs to this recurring series."
+            if destructive else
+            "Apply this action to every lesson that belongs to this recurring series."
+        )
+        options = [
+            ("this", "Only this lesson", "Keep every other lesson in the series."),
+            ("future", "This and future lessons", future_detail),
+            ("series", "Entire series", series_detail),
+        ]
+        for scope, title, detail in options:
+            button = QPushButton(f"{tr(title)}\n{tr(detail)}")
+            button.setMinimumHeight(58); button.setStyleSheet("QPushButton{text-align:left;padding:9px 13px;}")
+            button.clicked.connect(lambda _=False, value=scope: self._choose(value))
+            root.addWidget(button)
+        cancel = QPushButton(tr("Cancel")); cancel.clicked.connect(self.reject); root.addWidget(cancel, 0, Qt.AlignRight)
+
+    def _choose(self, scope: str) -> None:
+        self.scope = scope
+        self.accept()
