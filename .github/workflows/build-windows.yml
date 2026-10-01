@@ -1,12 +1,18 @@
-name: Build Windows package
+name: Build Windows installer
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/build-windows.yml"
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -18,7 +24,8 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install build dependencies
+      - name: Install Python build dependencies
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
@@ -31,11 +38,57 @@ jobs:
           python -m compileall -q mentor tests
           python -m unittest discover -s tests -p "test_*.py" -v
 
-      - name: Build Mentor
-        run: python -m PyInstaller --noconfirm --clean --windowed --name Mentor --collect-all PySide6 main.py
+      - name: Build Mentor application
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --windowed --name Mentor --collect-all PySide6 main.py
+          if (!(Test-Path "dist\Mentor\Mentor.exe")) {
+            throw "PyInstaller did not produce dist\Mentor\Mentor.exe"
+          }
 
-      - name: Upload package
+      - name: Create portable package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist\Mentor\*" -DestinationPath "dist\Mentor-portable-windows.zip" -Force
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build installable EXE
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) {
+            throw "Inno Setup compiler was not found at $iscc"
+          }
+          & $iscc "installer\Mentor.iss"
+          if (!(Test-Path "dist\installer\MentorSetup.exe")) {
+            throw "Inno Setup did not produce MentorSetup.exe"
+          }
+
+      - name: Generate SHA-256 checksums
+        shell: pwsh
+        run: |
+          $setup = Get-FileHash "dist\installer\MentorSetup.exe" -Algorithm SHA256
+          $portable = Get-FileHash "dist\Mentor-portable-windows.zip" -Algorithm SHA256
+          @(
+            "$($setup.Hash.ToLower())  MentorSetup.exe"
+            "$($portable.Hash.ToLower())  Mentor-portable-windows.zip"
+          ) | Set-Content -Path "dist\SHA256SUMS.txt" -Encoding ascii
+
+      - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Mentor-Windows
-          path: dist/Mentor/
+          name: Mentor-1.4-Windows
+          if-no-files-found: error
+          path: |
+            dist/installer/MentorSetup.exe
+            dist/Mentor-portable-windows.zip
+            dist/SHA256SUMS.txt
+
+      - name: Attach downloads to v1.4.0
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "v1.4.0" "dist\installer\MentorSetup.exe#MentorSetup.exe" "dist\Mentor-portable-windows.zip#Mentor-portable-windows.zip" "dist\SHA256SUMS.txt#SHA256SUMS.txt" --repo "$env:GITHUB_REPOSITORY" --clobber
