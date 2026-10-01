@@ -58,9 +58,23 @@ Mentor's interface uses a restrained dark visual system with a floating bottom d
 - **Calm visual hierarchy** — layered dark surfaces, restrained accent usage and subtle animation.
 - **One coherent workflow** — schedule → lesson → attendance → notes → homework → student history → statistics.
 
+## Download
+
+### Windows installer — recommended
+
+Download **[MentorSetup.exe](https://github.com/InomjonovaYoqutoy/Mentor/releases/download/v1.4.0/MentorSetup.exe)** from the latest release.
+
+The installer places Mentor under your Windows user profile, adds a Start Menu shortcut, optionally creates a desktop shortcut, and includes a standard uninstaller. Python is **not** required on the target computer.
+
+A portable build is also available as **[Mentor-portable-windows.zip](https://github.com/InomjonovaYoqutoy/Mentor/releases/download/v1.4.0/Mentor-portable-windows.zip)**.
+
+SHA-256 hashes are published in **[SHA256SUMS.txt](https://github.com/InomjonovaYoqutoy/Mentor/releases/download/v1.4.0/SHA256SUMS.txt)**.
+
+> The current Windows installer is not code-signed, so Microsoft Defender SmartScreen may show an “Unknown publisher” warning on first launch.
+
 ## Quick start
 
-### Requirements
+### Requirements for running from source
 
 - Windows 10 or Windows 11
 - Python 3.12+
@@ -84,16 +98,25 @@ run.bat
 quality_check.bat
 ```
 
-### Build a Windows executable
+### Build Windows packages locally
+
+Build the portable application folder:
 
 ```bat
 build_exe.bat
 ```
 
-PyInstaller produces:
+Build a proper installer (requires Inno Setup 6):
+
+```bat
+build_installer.bat
+```
+
+Outputs:
 
 ```text
 dist\Mentor\Mentor.exe
+dist\installer\MentorSetup.exe
 ```
 
 ## Architecture
