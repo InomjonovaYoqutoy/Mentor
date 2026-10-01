@@ -1,0 +1,61 @@
+name: Publish Mentor release history
+
+on:
+  push:
+    paths:
+      - ".github/workflows/publish-releases.yml"
+      - "docs/releases/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create or update Mentor releases
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          publish_release () {
+            TAG="$1"
+            TITLE="$2"
+            NOTES="$3"
+            LATEST="$4"
+
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release edit "$TAG" \
+                --repo "$GITHUB_REPOSITORY" \
+                --title "$TITLE" \
+                --notes-file "$NOTES" \
+                --latest="$LATEST"
+            else
+              gh release create "$TAG" \
+                --repo "$GITHUB_REPOSITORY" \
+                --target main \
+                --title "$TITLE" \
+                --notes-file "$NOTES" \
+                --latest="$LATEST"
+            fi
+          }
+
+          publish_release "v0.9.0" "Mentor 0.9 — First Functional Build" "docs/releases/v0.9.0.md" "false"
+          publish_release "v1.1.0" "Mentor 1.1 — Glass & Lessons" "docs/releases/v1.1.0.md" "false"
+          publish_release "v1.1.1" "Mentor 1.1.1 — Quality Hotfix" "docs/releases/v1.1.1.md" "false"
+          publish_release "v1.2.0" "Mentor 1.2 — Student Intelligence" "docs/releases/v1.2.0.md" "false"
+          publish_release "v1.3.0" "Mentor 1.3 — Lessons & Assignments" "docs/releases/v1.3.0.md" "false"
+          publish_release "v1.4.0" "Mentor 1.4 — Global & Personal" "docs/releases/v1.4.0.md" "true"
+
+      - name: Verify releases
+        shell: bash
+        run: |
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 20
